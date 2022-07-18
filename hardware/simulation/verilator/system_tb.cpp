@@ -8,10 +8,8 @@
 #include "iob_uart_swreg.h"
 
 // other macros
-#define FREQ 100000000
-#define BAUD 3000000
-#define CLK_PERIOD 10 // 10 ns
-#define RTC_PERIOD 1000 // 1 us
+#define CLK_PERIOD 1000000000/FREQ // 1/100MHz*10^9 = 10 ns
+#define RTC_PERIOD 1000000000/RTC_FREQ // 1/1MHz*10^9 = 1 us
 
 vluint64_t main_time = 0;
 VerilatedVcdC* tfp = NULL;

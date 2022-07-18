@@ -15,6 +15,9 @@ DATA_W := 32
 ADDR_W := 32
 N_CORES := 1
 
+#FIRMWARE TO RUN
+RUN_LINUX ?=0
+
 #FIRMWARE SIZE (LOG2)
 FIRM_ADDR_W ?=15
 
@@ -26,7 +29,7 @@ USE_DDR ?=0
 RUN_EXTMEM ?=0
 
 #DATA CACHE ADDRESS WIDTH (tag + index + offset)
-DCACHE_ADDR_W:=24
+DCACHE_ADDR_W:=28
 
 #ROM SIZE (LOG2)
 BOOTROM_ADDR_W:=12
@@ -62,6 +65,13 @@ UART_HW_DIR:=$(UART_DIR)/hardware
 ####################################################################
 # DERIVED FROM PRIMARY PARAMETERS: DO NOT CHANGE BELOW THIS POINT
 ####################################################################
+
+ifeq ($(RUN_LINUX),1)
+DEFINE+=$(defmacro)RUN_LINUX
+BAUD=115200
+FIRM_ADDR_W=25
+RUN_EXTMEM=1
+endif
 
 ifeq ($(RUN_EXTMEM),1)
 DEFINE+=$(defmacro)RUN_EXTMEM
@@ -136,6 +146,7 @@ DEFINE+=$(defmacro)N_SLAVES_W=$(N_SLAVES_W)
 #default baud and system clock freq
 BAUD ?=3000000 #simulation default
 FREQ ?=100000000
+RTC_FREQ ?=100000
 
 SHELL = /bin/bash
 

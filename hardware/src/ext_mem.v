@@ -88,143 +88,43 @@ module ext_mem
           else
             invalidate_reg <= invalidate_reg;
 
-`ifdef USE_L1_CACHE
+
+
 `ifdef RUN_EXTMEM
-   //
-   // INSTRUCTION CACHE
-   //
-
-   // Back-end bus
-   wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       icache_be_req;
-   wire [`RESP_W-1:0]                        icache_be_resp;
-
-
-   // Instruction cache instance
-   iob_cache #
-     (
-      .FE_ADDR_W(`FIRM_ADDR_W),
-      .BE_ADDR_W(`DCACHE_ADDR_W),
-      .N_WAYS(2),        //Number of ways
-      .LINE_OFF_W(7),    //Cache Line Offset (number of lines)
-      .WORD_OFF_W(4),    //Word Offset (number of words per line)
-      .WTBUF_DEPTH_W(5), //FIFO's depth -- 5 minimum for BRAM implementation
-      .CTRL_CACHE (0),   //Cache-Control can't be accessed
-      .CTRL_CNT(0)       //Remove counters
-      )
-   icache (
-           .clk   (clk),
-           .reset (rst),
-
-           // Front-end interface
-           .valid (i_req[1+`FIRM_ADDR_W-2+`WRITE_W-1]),
-           .addr  (i_req[`address(0, `FIRM_ADDR_W-2)]),
-           .wdata (i_req[`wdata(0)]),
-           .wstrb (i_req[`wstrb(0)]),
-           .rdata (i_resp[`rdata(0)]),
-           .ready (i_resp[`ready(0)]),
-           //Control IO
-           .force_inv_in(1'b0),
-           .force_inv_out(),
-           .wtb_empty_in(1'b1),
-           .wtb_empty_out(),
-           // Back-end interface
-           .mem_valid (icache_be_req[1+`DCACHE_ADDR_W+`WRITE_W-1]),
-           .mem_addr  (icache_be_req[`address(0, `DCACHE_ADDR_W)]),
-           .mem_wdata (icache_be_req[`wdata(0)]),
-           .mem_wstrb (icache_be_req[`wstrb(0)]),
-           .mem_rdata (icache_be_resp[`rdata(0)]),
-           .mem_ready (icache_be_resp[`ready(0)])
-           );
-`endif //  `ifdef RUN_EXTMEM
-
-   //
-   // DATA CACHE
-   //
-
-   // Back-end bus
-   wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       dcache_be_req;
-   wire [`RESP_W-1:0]                        dcache_be_resp;
-
-   // Data cache instance
-   iob_cache #
-     (
-      .FE_ADDR_W(`DCACHE_ADDR_W),
-      .N_WAYS(2),        //Number of ways
-      .LINE_OFF_W(7),    //Cache Line Offset (number of lines)
-      .WORD_OFF_W(4),    //Word Offset (number of words per line)
-      .WTBUF_DEPTH_W(5), //FIFO's depth -- 5 minimum for BRAM implementation
-      .CTRL_CACHE (1),   //Either 1 to enable cache-control or 0 to disable
-      .CTRL_CNT(1)       //do not change (it's implementation depends on the previous)
-      )
-   dcache (
-           .clk   (clk),
-           .reset (rst),
-
-           // Front-end interface
-           .valid (d_req[2+`DCACHE_ADDR_W-2+`WRITE_W-1]),
-           .addr  (d_req[`address(0,1+`DCACHE_ADDR_W-2)]),
-           .wdata (d_req[`wdata(0)]),
-           .wstrb (d_req[`wstrb(0)]),
-           .rdata (d_resp[`rdata(0)]),
-           .ready (d_resp[`ready(0)]),
-           //Control IO
-           .force_inv_in(1'b0),
-           .force_inv_out(invalidate),
-           .wtb_empty_in(l2_wtb_empty),
-           .wtb_empty_out(),
-           // Back-end interface
-           .mem_valid (dcache_be_req[1+`DCACHE_ADDR_W+`WRITE_W-1]),
-           .mem_addr  (dcache_be_req[`address(0,`DCACHE_ADDR_W)]),
-           .mem_wdata (dcache_be_req[`wdata(0)]),
-           .mem_wstrb (dcache_be_req[`wstrb(0)]),
-           .mem_rdata (dcache_be_resp[`rdata(0)]),
-           .mem_ready (dcache_be_resp[`ready(0)])
-           );
-`else
-`ifdef RUN_EXTMEM_USE_SRAM
-  wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       i_be_req;
-  assign i_be_req = {i_req[1+`FIRM_ADDR_W-2+`WRITE_W-1], {(`DCACHE_ADDR_W-`FIRM_ADDR_W){1'b0}}, i_req[`address(0, `FIRM_ADDR_W-2)], i_req[`write(0)]};
+   wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       icache_req;
+   wire [`RESP_W-1:0]                        icache_resp;
+   assign i_resp = icache_resp;
+   assign icache_req = {i_req[1+`FIRM_ADDR_W-2+`WRITE_W-1], {(`DCACHE_ADDR_W-`FIRM_ADDR_W){1'b0}}, i_req[`address(0, `FIRM_ADDR_W-2)], 2'b00, i_req[`WRITE_W-1:0]};
 `endif
-  wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       d_be_req;
-  assign d_be_req = {d_req[2+`DCACHE_ADDR_W-2+`WRITE_W-1], d_req[`address(0, `DCACHE_ADDR_W-1)], d_req[`write(0)]};
-`endif
+
+   wire [1+`DCACHE_ADDR_W+`WRITE_W-1:0]       dcache_req;
+   wire [`RESP_W-1:0]                        dcache_resp;
+   assign d_resp = dcache_resp;
+   assign dcache_req = {d_req[2+`DCACHE_ADDR_W-2+`WRITE_W-1], d_req[`address(0,`DCACHE_ADDR_W-2)], 2'b11, d_req[`WRITE_W-1:0]};
+
 
    // Merge cache back-ends
+`ifdef RUN_EXTMEM
    iob_merge
      #(
        .ADDR_W(`DCACHE_ADDR_W),
-`ifdef RUN_EXTMEM
        .N_MASTERS(2)
-`else
-       .N_MASTERS(1)
-`endif
        )
    merge_i_d_buses_into_l2
      (
       .clk(clk),
       .rst(rst),
       // masters
-`ifdef USE_L1_CACHE
-`ifdef RUN_EXTMEM
-      .m_req  ({icache_be_req, dcache_be_req}),
-      .m_resp ({icache_be_resp, dcache_be_resp}),
-`else
-      .m_req  (dcache_be_req),
-      .m_resp (dcache_be_resp),
-`endif
-`else
-`ifdef RUN_EXTMEM_USE_SRAM
-      .m_req  ({i_be_req, d_be_req}),
-      .m_resp ({i_resp, d_resp}),
-`else
-      .m_req  (d_be_req),
-      .m_resp (d_resp),
-`endif
-`endif
+      .m_req  ({icache_req, dcache_req}),
+      .m_resp ({icache_resp, dcache_resp}),
       // slave
       .s_req  (l2cache_req),
       .s_resp (l2cache_resp)
       );
+`else
+   assign l2cache_req = dcache_req;
+   assign l2cache_resp = dcache_resp;
+`endif
 
 
    // L2 cache instance

@@ -11,6 +11,8 @@
 
 #define PROGNAME "IOb-Bootloader"
 
+#define DC1 17 // Device Control 1 (used to indicate end of bootloader)
+
 int main() {
 
   //init uart
@@ -44,6 +46,25 @@ int main() {
     prog_start_addr = (char *) (1<<BOOTROM_ADDR_W);
 #endif
 
+#ifdef RUN_LINUX
+  //receive firmware from host
+  int  file_size = 0;
+  char opensbi[] = "fw_jump.bin";
+  char kernel[]  = "Image";
+  char dtb[]     = "iob_soc.dtb";
+  char rootfs[]  = "rootfs.cpio.gz";
+  if (uart_getc() == FRX) {//file receive: load firmware
+    file_size = uart_recvfile(opensbi, prog_start_addr);
+    prog_start_addr = (char *)(EXTRA_BASE + 0x00400000);
+    file_size = uart_recvfile(kernel, prog_start_addr);
+    prog_start_addr = (char *)(EXTRA_BASE + 0x00F80000);
+    file_size = uart_recvfile(dtb, prog_start_addr);
+    prog_start_addr = (char *)(EXTRA_BASE + 0x01000000);
+    file_size = uart_recvfile(rootfs, prog_start_addr);
+    uart_puts (PROGNAME);
+    uart_puts (": Loading firmware...\n");
+  }
+#else
   //receive firmware from host
   int file_size = 0;
   char r_fw[] = "firmware.bin";
@@ -52,23 +73,17 @@ int main() {
     uart_puts (PROGNAME);
     uart_puts (": Loading firmware...\n");
   }
-
   //sending firmware back for debug
   char s_fw[] = "s_fw.bin";
-
   if(file_size)
     uart_sendfile(s_fw, file_size, prog_start_addr);
-
-  //run firmware
-  uart_puts (PROGNAME);
-  uart_puts (": Restart CPU to run user program...\n");
-  uart_txwait();
+#endif
 
 #ifdef RUN_EXTMEM
   while( !cache_wtb_empty() );
 #endif
 
-  // Clear CPU registers, to not pass arguments to the next 
+  // Clear CPU registers, to not pass arguments to the next
   asm volatile("and     a0,a0,zero");
   asm volatile("and     a1,a1,zero");
   asm volatile("and     a2,a2,zero");
@@ -78,6 +93,11 @@ int main() {
   asm volatile("and     a6,a6,zero");
   asm volatile("and     a7,a7,zero");
 
+  //run firmware
+  uart_puts (PROGNAME);
+  uart_puts (": Restart CPU to run user program...\n");
+  uart_putc(DC1);
+  uart_txwait();
   //reboot and run firmware (not bootloader)
   *((int *) BOOTCTR_BASE) = 0b10;
 

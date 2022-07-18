@@ -70,18 +70,21 @@ system.v: $(SRC_DIR)/system_core.v
 boot.hex: $(BOOT_DIR)/boot.bin
 	$(PYTHON_DIR)/makehex.py $< $(BOOTROM_ADDR_W) > $@
 
+ifeq ($(RUN_LINUX),1)
 OPENSBI_DIR = $(VEX_OS_DIR)/fw_jump.bin
 DTB_DIR = $(VEX_OS_DIR)/iob_soc.dtb
-DTB_ADDR = 00F80000
+DTB_ADDR:=00F80000
 LINUX_DIR = $(VEX_OS_DIR)/Image
-LINUX_ADDR = 00400000
-ROOTFS_DIR = $(VEX_OS_DIR)/rootfs.cpio
-ROOTFS_ADDR = 01000000
-#FIRM_ARGS = $(OPENSBI_DIR)
-#FIRM_ARGS += $(DTB_DIR) $(DTB_ADDR)
-#FIRM_ARGS += $(LINUX_DIR) $(LINUX_ADDR)
-#FIRM_ARGS += $(ROOTFS_DIR) $(ROOTFS_ADDR)
+LINUX_ADDR:=00400000
+ROOTFS_DIR = $(VEX_OS_DIR)/rootfs.cpio.gz
+ROOTFS_ADDR:=01000000
+FIRM_ARGS = $(OPENSBI_DIR)
+FIRM_ARGS += $(DTB_DIR) $(DTB_ADDR)
+FIRM_ARGS += $(LINUX_DIR) $(LINUX_ADDR)
+FIRM_ARGS += $(ROOTFS_DIR) $(ROOTFS_ADDR)
+else
 FIRM_ARGS = $<
+endif
 firmware.hex: $(FIRM_DIR)/firmware.bin
 	$(PYTHON_DIR)/makehex.py $(FIRM_ARGS) $(FIRM_ADDR_W) > $@
 	$(PYTHON_DIR)/hex_split.py firmware .
